@@ -9,7 +9,6 @@ function HabitDetail() {
     const [completedDays, setCompletedDays] = useState([]);
     const [currentDate, setCurrentDate] = useState(new Date());
 
-    // Оборачиваем loadHabitData в useCallback, чтобы она не менялась при каждом рендере
     const loadHabitData = useCallback(() => {
         const habits = JSON.parse(localStorage.getItem("habits")) || [];
         const foundHabit = habits.find(h => h.id === Number(id));
@@ -21,11 +20,11 @@ function HabitDetail() {
                 setCompletedDays([]);
             }
         }
-    }, [id]); // Зависимость только от id
+    }, [id]); 
 
     useEffect(() => {
         loadHabitData();
-    }, [loadHabitData]); // Теперь зависимость корректная
+    }, [loadHabitData]); 
 
     if (!habit) {
         return (
@@ -40,33 +39,27 @@ function HabitDetail() {
     const completedCount = completedDays.length;
     const progress = (completedCount / goal) * 100;
     const isComplete = completedCount >= goal;
-
-    // Проверка, выполнял ли пользователь сегодня какой-либо квадратик
+    
     const hasCompletedToday = () => {
         const today = new Date();
         const todayString = today.toLocaleDateString();
         return completedDays.some(day => day.date === todayString);
     };
 
-    // Переключение статуса дня (квадратика)
     const toggleDay = (dayNumber) => {
         const today = new Date();
         const todayString = today.toLocaleDateString();
         
-        // Проверяем, выполнен ли этот квадратик
         const isDayCompleted = completedDays.some(day => day.dayNumber === dayNumber);
         
         if (!isDayCompleted) {
-            // Пытаемся отметить новый квадратик
             const alreadyCompletedToday = hasCompletedToday();
             
             if (alreadyCompletedToday) {
-                // Если сегодня уже отмечали другой квадратик - показываем ошибку
                 window.alert("❌ You can only complete ONE habit per day!\n\nYou have already completed a habit today. Come back tomorrow to complete another one.");
                 return;
             }
-            
-            // Если всё ок - отмечаем квадратик
+
             const newCompletedDays = [...completedDays, {
                 dayNumber: dayNumber,
                 date: todayString,
@@ -75,8 +68,7 @@ function HabitDetail() {
             
             newCompletedDays.sort((a, b) => a.dayNumber - b.dayNumber);
             setCompletedDays(newCompletedDays);
-            
-            // Сохраняем в localStorage
+
             const habits = JSON.parse(localStorage.getItem("habits")) || [];
             const updatedHabits = habits.map(h => 
                 h.id === habit.id 
@@ -99,17 +91,15 @@ function HabitDetail() {
                 lastUpdated: new Date().toLocaleString()
             });
         } else {
-            // Если квадратик уже выполнен - спрашиваем подтверждение на снятие
+
             const completedDayInfo = completedDays.find(day => day.dayNumber === dayNumber);
             const confirmUnmark = window.confirm(`⚠️ Are you sure you want to UNMARK Day ${dayNumber}?\n\nThis will remove the completion record from ${completedDayInfo?.date}`);
             
             if (confirmUnmark) {
-                // Убираем квадратик и удаляем запись из истории
                 const newCompletedDays = completedDays.filter(day => day.dayNumber !== dayNumber);
                 newCompletedDays.sort((a, b) => a.dayNumber - b.dayNumber);
                 setCompletedDays(newCompletedDays);
                 
-                // Сохраняем в localStorage
                 const habits = JSON.parse(localStorage.getItem("habits")) || [];
                 const updatedHabits = habits.map(h => 
                     h.id === habit.id 
@@ -135,10 +125,8 @@ function HabitDetail() {
         }
     };
 
-    // Создаем массив квадратиков цели (от 1 до goal)
     const goalDaysArray = Array.from({ length: goal }, (_, i) => i + 1);
-    
-    // Функции для навигации по месяцам в календаре
+
     const goToPreviousMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
     };
@@ -146,29 +134,25 @@ function HabitDetail() {
     const goToNextMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
     };
-    
-    // Получаем данные для календаря
+
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const firstDayOfMonth = new Date(year, month, 1);
     const lastDayOfMonth = new Date(year, month + 1, 0);
     const daysInMonth = lastDayOfMonth.getDate();
     const startingDayOfWeek = firstDayOfMonth.getDay();
-    
-    // Функция для проверки, был ли день выполнен
+
     const isDateCompleted = (day) => {
         const dateString = new Date(year, month, day).toLocaleDateString();
         return completedDays.some(completed => completed.date === dateString);
     };
-    
-    // Получаем информацию о выполнении в конкретный день
+
     const getDayCompletionInfo = (day) => {
         const dateString = new Date(year, month, day).toLocaleDateString();
         const completion = completedDays.find(completed => completed.date === dateString);
         return completion;
     };
     
-    // Создаем массив дней для календаря
     const calendarDays = [];
     for (let i = 0; i < startingDayOfWeek; i++) {
         calendarDays.push(null);
@@ -187,7 +171,6 @@ function HabitDetail() {
         <div className={`habit-detail ${isComplete ? 'habit-complete-all' : ''}`}>
             <h2>{habit.name}</h2>
             
-            {/* Квадратики цели (1-30) */}
             <div className="days-grid-section">
                 <h3>Goal Progress (Complete {goal} times)</h3>
                 <div className="days-grid">
@@ -212,7 +195,6 @@ function HabitDetail() {
                 </p>
             </div>
 
-            {/* Прогресс-бар */}
             <div className="progress-section">
                 <h3>Progress</h3>
                 <div className="progress-bar-container">
@@ -229,7 +211,6 @@ function HabitDetail() {
                 )}
             </div>
 
-            {/* Календарь истории */}
             <div className="calendar-section">
                 <h3>📆 Calendar - Days when you completed</h3>
                 <div className="calendar-header">

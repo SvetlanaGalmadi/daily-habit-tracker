@@ -5,12 +5,11 @@ import './App.css';
 
 function HabitList() {
   const [filter, setFilter] = useState("all");
-  
-  // Функция для обновления статуса на основе сегодняшней даты (объявляем ДО useState)
+
   const updateTodayStatus = (habitsList) => {
     const today = new Date().toLocaleDateString();
     return habitsList.map(habit => {
-      // Проверяем, есть ли выполнение сегодня
+
       const completedToday = habit.completedDays?.some(day => day.date === today);
       return {
         ...habit,
@@ -24,7 +23,6 @@ function HabitList() {
     const savedHabits = localStorage.getItem('habits');
     if (savedHabits) {
       const parsed = JSON.parse(savedHabits);
-      // Обновляем статус completed на основе сегодняшней даты
       return updateTodayStatus(parsed);
     }
     return [
@@ -35,13 +33,11 @@ function HabitList() {
   });
   
   useEffect(() => {
-    // При каждой загрузке проверяем статус на сегодня
     const updateStatus = () => {
       setHabits(prev => updateTodayStatus(prev));
     };
     updateStatus();
     
-    // Интервал для обновления статуса каждый час (на случай смены дня)
     const interval = setInterval(updateStatus, 3600000);
     return () => clearInterval(interval);
   }, []);
@@ -76,7 +72,6 @@ function HabitList() {
     ));
   };
   
-  // Функция для обновления статуса привычки (вызывается из Habit, если нужно)
   const updateHabitStatus = (id, completed) => {
     setHabits(habits.map(habit => 
       habit.id === id 
