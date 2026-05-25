@@ -1,55 +1,71 @@
 import React, { useState } from 'react';
-import {Link} from "react-router-dom";
+import { Link } from "react-router-dom";
 import './App.css';
 
-function Habit({ id, name, completed, lastUpdated, onDelete, onToggle, onUpdate }) {
-    const [isEditing, setIsEditing] = useState(false);
-    const[newName, setNewName] = useState(name);
+function Habit({ id, name, completed, lastUpdated, onDelete, onUpdate }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [newName, setNewName] = useState(name);
+
+  const handleSave = () => {
+    if (newName.trim() === '') return;
+    onUpdate(id, newName);
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setNewName(name);
+    setIsEditing(false);
+  };
+
+  const handleDelete = () => {
+    if (window.confirm(`Вы уверены, что хотите удалить привычку "${name}"?`)) {
+      onDelete(id);
+    }
+  };
 
   return (
     <div className={`form-habit ${completed ? "habit-completed" : "habit-not-completed"}`}>      
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         {isEditing ? (
-          <div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <input 
-                type="text" 
-                value={newName} 
-                onChange={(e) => setNewName(e.target.value)} 
+              type="text" 
+              value={newName} 
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSave()}
+              autoFocus
             />
-            <button onClick={() => { onUpdate(id, newName); setIsEditing(false); }}>
-              Save
-            </button>
+            <button onClick={handleSave}>Save</button>
+            <button onClick={handleCancel}>Cancel</button>
           </div>
         ) : (
-         <Link to={`/habit/${id}`} style={{ textDecoration: "none", color: "black", fontWeight: "bold" }}>
+          <span style={{ fontSize: '24px', fontWeight: '600', color: '#362a20' }}>
             {name}
-        </Link>
+          </span>
         )}
 
-        {lastUpdated && (
-          <small style={{ color: '#555' }}>
+        {lastUpdated && !isEditing && (
+          <small style={{ color: '#555', marginTop: '5px' }}>
             Last Update: {lastUpdated}
           </small>
         )}
       </div>
-      
+       <Link to={`/habit/${id}`}>
+          <button className="edit-button" title="View details">
+            📊
+          </button>
+        </Link>
+        
       <div>
-      <span
-        className={`status-icon ${completed ? "completed" : "not-completed"}`}
-        onClick={() => onToggle(id)}
-      >
-        {completed ? "✔" : "✖"}
-      </span>
-
-        <button className ="edit-button" onClick={() => setIsEditing(true)} >
-        ✏️
+        <button className="edit-button" onClick={() => setIsEditing(true)} title="Edit habit">
+          ✏️
         </button>
 
-    <button className='delete-button' onClick={() => onDelete(id)}>
-      🗑️
-    </button>
+        <button className="delete-button" onClick={handleDelete} title="Delete habit">
+          🗑️
+        </button>
+      </div>
     </div>
-  </div>
   );
 }
 

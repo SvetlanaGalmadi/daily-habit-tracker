@@ -25,9 +25,13 @@ function AddHabit({ onAddHabit }) {
 
       <input 
         type = "number"
+        min = '1'
         placeholder = "Goal (days)"
         value = {goal}
-        onChange= {(e) => setGoal(Number(e.target.value))} />
+        onChange= {(e) =>{
+          const value = Math.max (1, Number(e.target.value));
+          setGoal(value);
+        }} />
  
       <button type="submit"> Add Habit </button>
     </form>

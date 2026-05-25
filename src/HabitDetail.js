@@ -1,12 +1,31 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import './App.css';
 
 function HabitDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const habits = JSON.parse(localStorage.getItem("habits")) || [];
-    const habit = habits.find(h => h.id === Number(id));
+    const [habit, setHabit] = useState(null);
+    const [completedDays, setCompletedDays] = useState([]);
+    const [currentDate, setCurrentDate] = useState(new Date());
+
+    // Оборачиваем loadHabitData в useCallback, чтобы она не менялась при каждом рендере
+    const loadHabitData = useCallback(() => {
+        const habits = JSON.parse(localStorage.getItem("habits")) || [];
+        const foundHabit = habits.find(h => h.id === Number(id));
+        if (foundHabit) {
+            setHabit(foundHabit);
+            if (foundHabit.completedDays) {
+                setCompletedDays(foundHabit.completedDays);
+            } else {
+                setCompletedDays([]);
+            }
+        }
+    }, [id]); // Зависимость только от id
+
+    useEffect(() => {
+        loadHabitData();
+    }, [loadHabitData]); // Теперь зависимость корректная
 
     if (!habit) {
         return (
@@ -17,46 +36,241 @@ function HabitDetail() {
         );
     }
 
-    const progress = habit.history && habit.goal ? (habit.history.length / habit.goal) * 100 : 0;
+    const goal = habit.goal || 30;
+    const completedCount = completedDays.length;
+    const progress = (completedCount / goal) * 100;
+    const isComplete = completedCount >= goal;
+
+    // Проверка, выполнял ли пользователь сегодня какой-либо квадратик
+    const hasCompletedToday = () => {
+        const today = new Date();
+        const todayString = today.toLocaleDateString();
+        return completedDays.some(day => day.date === todayString);
+    };
+
+    // Переключение статуса дня (квадратика)
+    const toggleDay = (dayNumber) => {
+        const today = new Date();
+        const todayString = today.toLocaleDateString();
+        
+        // Проверяем, выполнен ли этот квадратик
+        const isDayCompleted = completedDays.some(day => day.dayNumber === dayNumber);
+        
+        if (!isDayCompleted) {
+            // Пытаемся отметить новый квадратик
+            const alreadyCompletedToday = hasCompletedToday();
+            
+            if (alreadyCompletedToday) {
+                // Если сегодня уже отмечали другой квадратик - показываем ошибку
+                window.alert("❌ You can only complete ONE habit per day!\n\nYou have already completed a habit today. Come back tomorrow to complete another one.");
+                return;
+            }
+            
+            // Если всё ок - отмечаем квадратик
+            const newCompletedDays = [...completedDays, {
+                dayNumber: dayNumber,
+                date: todayString,
+                timestamp: today.getTime()
+            }];
+            
+            newCompletedDays.sort((a, b) => a.dayNumber - b.dayNumber);
+            setCompletedDays(newCompletedDays);
+            
+            // Сохраняем в localStorage
+            const habits = JSON.parse(localStorage.getItem("habits")) || [];
+            const updatedHabits = habits.map(h => 
+                h.id === habit.id 
+                    ? { 
+                        ...h, 
+                        completedDays: newCompletedDays,
+                        history: newCompletedDays.map(day => `${day.date} - Day ${day.dayNumber}`),
+                        completed: newCompletedDays.some(day => day.date === todayString),
+                        lastUpdated: new Date().toLocaleString()
+                      }
+                    : h
+            );
+            localStorage.setItem("habits", JSON.stringify(updatedHabits));
+            
+            setHabit({
+                ...habit,
+                completedDays: newCompletedDays,
+                history: newCompletedDays.map(day => `${day.date} - Day ${day.dayNumber}`),
+                completed: newCompletedDays.some(day => day.date === todayString),
+                lastUpdated: new Date().toLocaleString()
+            });
+        } else {
+            // Если квадратик уже выполнен - спрашиваем подтверждение на снятие
+            const completedDayInfo = completedDays.find(day => day.dayNumber === dayNumber);
+            const confirmUnmark = window.confirm(`⚠️ Are you sure you want to UNMARK Day ${dayNumber}?\n\nThis will remove the completion record from ${completedDayInfo?.date}`);
+            
+            if (confirmUnmark) {
+                // Убираем квадратик и удаляем запись из истории
+                const newCompletedDays = completedDays.filter(day => day.dayNumber !== dayNumber);
+                newCompletedDays.sort((a, b) => a.dayNumber - b.dayNumber);
+                setCompletedDays(newCompletedDays);
+                
+                // Сохраняем в localStorage
+                const habits = JSON.parse(localStorage.getItem("habits")) || [];
+                const updatedHabits = habits.map(h => 
+                    h.id === habit.id 
+                        ? { 
+                            ...h, 
+                            completedDays: newCompletedDays,
+                            history: newCompletedDays.map(day => `${day.date} - Day ${day.dayNumber}`),
+                            completed: newCompletedDays.some(day => day.date === new Date().toLocaleDateString()),
+                            lastUpdated: new Date().toLocaleString()
+                          }
+                        : h
+                );
+                localStorage.setItem("habits", JSON.stringify(updatedHabits));
+                
+                setHabit({
+                    ...habit,
+                    completedDays: newCompletedDays,
+                    history: newCompletedDays.map(day => `${day.date} - Day ${day.dayNumber}`),
+                    completed: newCompletedDays.some(day => day.date === new Date().toLocaleDateString()),
+                    lastUpdated: new Date().toLocaleString()
+                });
+            }
+        }
+    };
+
+    // Создаем массив квадратиков цели (от 1 до goal)
+    const goalDaysArray = Array.from({ length: goal }, (_, i) => i + 1);
+    
+    // Функции для навигации по месяцам в календаре
+    const goToPreviousMonth = () => {
+        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+    };
+    
+    const goToNextMonth = () => {
+        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+    };
+    
+    // Получаем данные для календаря
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+    const daysInMonth = lastDayOfMonth.getDate();
+    const startingDayOfWeek = firstDayOfMonth.getDay();
+    
+    // Функция для проверки, был ли день выполнен
+    const isDateCompleted = (day) => {
+        const dateString = new Date(year, month, day).toLocaleDateString();
+        return completedDays.some(completed => completed.date === dateString);
+    };
+    
+    // Получаем информацию о выполнении в конкретный день
+    const getDayCompletionInfo = (day) => {
+        const dateString = new Date(year, month, day).toLocaleDateString();
+        const completion = completedDays.find(completed => completed.date === dateString);
+        return completion;
+    };
+    
+    // Создаем массив дней для календаря
+    const calendarDays = [];
+    for (let i = 0; i < startingDayOfWeek; i++) {
+        calendarDays.push(null);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+        const isCompleted = isDateCompleted(i);
+        const completionInfo = getDayCompletionInfo(i);
+        calendarDays.push({ 
+            day: i, 
+            completed: isCompleted, 
+            dayNumber: completionInfo?.dayNumber 
+        });
+    }
 
     return (
-        <div className="habit-detail">
+        <div className={`habit-detail ${isComplete ? 'habit-complete-all' : ''}`}>
             <h2>{habit.name}</h2>
             
-            <div className="habit-status">
-                <span className={`status-badge ${habit.completed ? "completed" : "not-completed"}`}>
-                    {habit.completed ? "✓ Completed" : "✗ Not Completed"}
-                </span>
+            {/* Квадратики цели (1-30) */}
+            <div className="days-grid-section">
+                <h3>Goal Progress (Complete {goal} times)</h3>
+                <div className="days-grid">
+                    {goalDaysArray.map(dayNum => {
+                        const completedInfo = completedDays.find(day => day.dayNumber === dayNum);
+                        const isCompleted = !!completedInfo;
+                        return (
+                            <div
+                                key={dayNum}
+                                className={`day-square ${isCompleted ? 'completed-day' : 'incomplete-day'}`}
+                                onClick={() => toggleDay(dayNum)}
+                                title={isCompleted ? `Completed on ${completedInfo.date}` : `Day ${dayNum} - Not completed yet`}
+                            >
+                                {dayNum}
+                                {isCompleted && <span className="check-mark">✓</span>}
+                            </div>
+                        );
+                    })}
+                </div>
+                <p className="days-hint">
+                    📅 Click on squares to mark completion. ⚠️ Only ONE square per day!
+                </p>
             </div>
 
-            <p className="last-update">
-                <strong>Last Update:</strong> {habit.lastUpdated || "Never"}
-            </p>
-
-            <div className="history-section">
-                <h3>History</h3>
-                <ul className="history-list">
-                    {habit.history && habit.history.length > 0 ? (
-                        habit.history.map((date, index) => (
-                            <li key={index}>{date}</li>
-                        ))
-                    ) : (
-                        <li className="no-history">No history yet</li>
-                    )}
-                </ul>
-            </div>
-
+            {/* Прогресс-бар */}
             <div className="progress-section">
                 <h3>Progress</h3>
                 <div className="progress-bar-container">
                     <div 
                         className="progress-bar-fill" 
-                        style={{ width: `${progress}%` }}
+                        style={{ width: `${Math.min(progress, 100)}%` }}
                     ></div>
                 </div>
                 <p className="progress-text">
-                    Progress: {habit.history ? habit.history.length : 0} / {habit.goal || 30} days completed
+                    🎯 Progress: {completedCount} / {goal} times completed ({Math.round(progress)}%)
                 </p>
+                {isComplete && (
+                    <p className="congrats-message">🎉 Congratulations! You've completed all {goal} times! 🎉</p>
+                )}
+            </div>
+
+            {/* Календарь истории */}
+            <div className="calendar-section">
+                <h3>📆 Calendar - Days when you completed</h3>
+                <div className="calendar-header">
+                    <button className="calendar-nav" onClick={goToPreviousMonth}>←</button>
+                    <span className="calendar-month">
+                        {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                    </span>
+                    <button className="calendar-nav" onClick={goToNextMonth}>→</button>
+                </div>
+                <div className="calendar-weekdays">
+                    <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                </div>
+                <div className="calendar-grid">
+                    {calendarDays.map((day, index) => (
+                        <div 
+                            key={index} 
+                            className={`calendar-day ${day ? (day.completed ? 'calendar-day-completed' : 'calendar-day-normal') : 'calendar-day-empty'}`}
+                            title={day && day.completed ? `Completed Day ${day.dayNumber}` : ''}
+                        >
+                            {day ? day.day : ''}
+                        </div>
+                    ))}
+                </div>
+                <p className="calendar-hint">
+                    💚 Green days = days when you completed a habit
+                </p>
+            </div>
+
+            <div className="history-section">
+                <h3>📝 Completion History</h3>
+                <ul className="history-list">
+                    {completedDays.length > 0 ? (
+                        [...completedDays].sort((a, b) => b.timestamp - a.timestamp).map((item, index) => (
+                            <li key={index}>
+                                ✅ {item.date} - Completed Day {item.dayNumber}
+                            </li>
+                        ))
+                    ) : (
+                        <li className="no-history">No completions yet. Click on squares to track your progress!</li>
+                    )}
+                </ul>
             </div>
 
             <button className="back-button" onClick={() => navigate('/')}>
